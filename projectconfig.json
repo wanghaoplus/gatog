@@ -1,0 +1,32 @@
+{
+  "loopTimes":1,
+  "reportPath":"D:\\report",
+  "runMode":0,
+  "isGroupCase":"flase",
+  "isHandleDevice":"flase",
+  "Instruments":{
+	"Gss7000":{
+	  		"type":"Gss7000",
+	  		"ip":"10.100.5.230",
+	  		"port":15650
+	  },
+	  "Labsat":{
+	  		"type":"WIDEBAND",
+	  		"ip":"10.100.17.200",
+	  		"port":23
+	  }
+	},
+  "devices":{
+  
+      "TestDevices":[
+      {
+      "name":"DUT1",
+      "ip":"",
+      "port":"COM4",
+      "deviceType":"hdbd",
+      "connectType":"usb",
+      "catchLog":{"enable":"true","log":[]}
+      }
+      ]
+    }
+}
