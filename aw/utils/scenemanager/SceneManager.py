@@ -16,7 +16,6 @@ from aw.core.Input import FAIL
 from aw.core.Input import isSuc
 from aw.core.Input import AutoPrint
 from aw.core.Input import getResourcePath, getLbsCaseLogPath
-from scipy.signal._peak_finding import peak_prominences
 
 SCENE_PATH = r'\\10.100.5.163'
 # SCENE_PATH = r'\\10.100.5.139\Test_department'

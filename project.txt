@@ -1,1 +1,1 @@
-script/Sensitivity/BF_TTFF_static_130_L1_Hot_0001.py
+script/Test_003_longtime.py
