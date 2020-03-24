@@ -11,7 +11,7 @@ from queue import Queue
 from aw.core.Input import getLbsCaseLogPath
 FLUSH_TIMEOUT = 10  # 缓存中最多保留10s的数据
 # 测试设备命令返回值标志
-CMD_MARK = {'hdbd':'G.TXT',
+CMD_MARK = {'hdbd':'TXT,02',
            'mtk':'PMTK010',
            'thaiduo':'THAIDUO',
            'unicore':'Unicore',
@@ -30,6 +30,7 @@ class LogChangeListner(object):
         self.startFlushTime = time.time()
         self.startParseFlag = False
         self.cmdMark = None
+        self.endLine = None
         self.queue = Queue()
         
     def setDeviceMsg(self, device):
@@ -46,19 +47,19 @@ class LogChangeListner(object):
     @property
     def debugFile(self):
         if self.__debugFile is None:
-            self.__debugFile = open(os.path.join(self.deviceLogPath, self.deviceSN + 'debug.txt'), 'ab')
+            self.__debugFile = open(os.path.join(self.deviceLogPath, self.deviceSN + '_debug.txt'), 'ab')
         return self.__debugFile
     
     @property
     def nmeaFile(self):
         if self.__nmeaFile is None:
-            self.__nmeaFile = open(os.path.join(self.deviceLogPath, self.deviceSN + 'nmea.txt'), 'ab')
+            self.__nmeaFile = open(os.path.join(self.deviceLogPath, self.deviceSN + '_nmea.txt'), 'ab')
         return self.__nmeaFile
     
     @property
     def sensorFile(self):
         if self.__sensorFile is None:
-            self.__sensorFile = open(os.path.join(self.deviceLogPath, self.deviceSN +'sensor.txt'), 'ab')
+            self.__sensorFile = open(os.path.join(self.deviceLogPath, self.deviceSN +'_sensor.txt'), 'ab')
         return self.__sensorFile
     
     def onLogChange(self, msg):
@@ -79,11 +80,24 @@ class LogChangeListner(object):
         self.flush()
         
     def collectNmeaLog(self, line):
-        if re.search('G.GGA', str(line)):
-            ggaMsg = str(line).split('GGA,')[1]
-            self.queue.put_nowait(('GGA', ggaMsg))
-        elif re.search(self.cmdMark, str(line)):
-            self.queue.put_nowait((self.cmdMark, str(line)))
+        line = str(line)[2:-1]
+        if self.endLine != None:
+            line = self.endLine + str(line)
+            
+        if not str(line).endswith(r'\r\n'):
+            self.endLine = str(line).split(r'\r\n')[-1]
+            end = -1
+        else:
+            end = len(line.split(r'\r\n')[0:])
+            self.endLine = None
+            
+        for nemaLine in line.split(r'\r\n')[0:end]:
+            if re.search('G.GGA', nemaLine):
+                ggaMsg = str(line).split('GGA,')[1]
+                self.queue.put_nowait(('GGA', ggaMsg))
+                
+            elif re.search(self.cmdMark, str(nemaLine)):
+                self.queue.put_nowait((self.cmdMark, str(line)))
             
     def setParseNmeaEnable(self, isEnable):
         self.startParseFlag = isEnable

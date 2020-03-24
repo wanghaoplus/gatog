@@ -1663,7 +1663,7 @@ class GetResource2DB(ActionDB):
             if longCos >= 1.0:
                 return 0
             distance = math.acos(latSinSelf * latSinref1 + latCosSelf * latCosref1 * longCos) * 6378137
-            return round(distance, 2)
+            return round(distance, 3)
         except:
             import traceback
             print(traceback.format_exc())
@@ -1702,7 +1702,7 @@ class GetResource2DB(ActionDB):
             ref_speed = row['ref_speed']
             test_speed = row['test_speed']
             Sum = abs(float(test_speed) - float(ref_speed))
-            return round(Sum, 2)
+            return round(Sum, 3)
         except:
             return -10
 
@@ -1718,7 +1718,7 @@ class GetResource2DB(ActionDB):
             Sum = abs(float(ref_heading) - float(test_heading))
             if 360 - Sum < Sum:
                 Sum = 360 - Sum
-            return round(abs(Sum), 2)
+            return round(abs(Sum), 3)
         except:
             return -10
 
@@ -1740,7 +1740,7 @@ class GetResource2DB(ActionDB):
             radian_heading_diff = radians(headingdiff)
 
             result = abs(position_error * np.cos(radian_heading_diff))
-            return round(result, 2)
+            return round(result, 3)
         except:
             import traceback
             PRINTE("__calcute_alongtrackError [{}]".format(traceback.format_exc()))
@@ -1763,7 +1763,7 @@ class GetResource2DB(ActionDB):
             radian_heading_diff = radians(headingdiff)
 
             result = position_error * np.sin(radian_heading_diff)
-            return round(result, 2)
+            return round(result, 3)
         except:
             import traceback
             PRINTE("__calcute_crosstrackError [{}]".format(traceback.format_exc()))
@@ -1786,7 +1786,7 @@ class GetResource2DB(ActionDB):
             radian_heading_diff = radians(headingdiff)
 
             result = position_error * np.cos(radian_heading_diff)
-            return round(result, 2)
+            return round(result, 3)
         except:
             import traceback
             PRINTE("__calcute_overshootError [{}]".format(traceback.format_exc()))

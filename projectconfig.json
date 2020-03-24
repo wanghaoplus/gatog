@@ -2,8 +2,11 @@
   "loopTimes":1,
   "reportPath":"D:\\report",
   "runMode":0,
-  "isGroupCase":"flase",
-  "isHandleDevice":"flase",
+  "isGroupCase":"false",
+  "isHandleDevice":"false",
+  "isArchive":"false",
+  "isReadEnvConfig":"True",
+  "report"
   "Instruments":{
 	"Gss7000":{
 	  		"type":"Gss7000",

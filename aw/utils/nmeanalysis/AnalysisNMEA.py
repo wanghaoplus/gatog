@@ -1,7 +1,15 @@
 # coding:utf-8
-
-
 import os, time, sys
+print(sys.argv[1:])
+reportPath = r"D:\NmeanalysisReport\%s" % time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
+if sys.argv[1:]:
+    casePath = sys.argv[1]
+    sceneId =sys.argv[2]
+    reportPath = os.path.join(casePath, sceneId)
+print(reportPath)
+if not os.path.exists(reportPath):
+        os.makedirs(reportPath)
+        
 import traceback
 from aw.utils.nmeanalysis.GetResource2DB import GetResource2DB
 from aw.utils.nmeanalysis.AresInput import PRINTI
@@ -12,15 +20,7 @@ from aw.utils.nmeanalysis.AresInput import LBSDector
 from aw.utils.nmeanalysis.creatHigeo2KML import createKML
 from aw.utils.nmeanalysis.AnalyzeModule import analyze_main
 from aw.core.Input import isSuc
-print(sys.argv[1:])
-reportPath = r"D:\NmeanalysisReport\%s" % time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
-if sys.argv[1:]:
-    casePath = sys.argv[1]
-    sceneId =sys.argv[2]
-    reportPath = os.path.join(casePath, sceneId)
-print(reportPath)
-if not os.path.exists(reportPath):
-        os.makedirs(reportPath)
+
 
 
 class AnalyzeNMEA(object):

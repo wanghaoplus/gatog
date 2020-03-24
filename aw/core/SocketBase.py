@@ -27,7 +27,7 @@ class SocketClient(LogChangeListner):
 
     @property
     def client(self):
-        if self.__client is None:
+        if (self.__client is None) and (self.stopRecvFlag is False):
             self.__client = self._connect()
         return self.__client
     
@@ -54,9 +54,11 @@ class SocketClient(LogChangeListner):
         
     def startReciver(self):
         while self.stopRecvFlag is False:
-            recvData = self.client.recv(BUFSIZE)
-            print(recvData)
-            self.parseData(recvData)
+            try:
+                recvData = self.client.recv(BUFSIZE)
+                self.parseData(recvData)
+            except:
+                pass
             
     def parseData(self, msg):
         self.onLogChange(msg)
@@ -74,7 +76,7 @@ class SocketClient(LogChangeListner):
         self.close()
 
 if __name__ == '__main__':
-    so = SocketClient('10.100.17.210', 4017)
+    so = SocketClient('10.100.5.225', 4003)
     import threading
     import time
     so.connect()

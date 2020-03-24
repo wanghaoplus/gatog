@@ -7,6 +7,7 @@
 # @Software: PyCharm
 import os
 import json
+import xlrd
 from autotest.core.modle.Variable import VAR
 from autotest.core.modle.Variable import DEVICE
 from autotest.core.modle.CustomException import NoProjectConfigException
@@ -65,19 +66,41 @@ class ProjectConfig(object):
         VAR.CurProject.IsHandleDevice = isHandleDevice
 
     def initDevices(self):
-        devices = self.config.get('devices', {})
-        if devices:
-            enable = devices.get('enable', "true")
-            if "true" != enable.lower():
-                return
-            androidDevices = devices.get('AndroidDevices', [])
-            iosDevices = devices.get('IosDevices', [])
-            testDevices = devices.get('TestDevices', [])
-            if len(androidDevices) == 0 and len(iosDevices) == 0 and len(testDevices) == 0:
-                raise ErrorConfigException('not found any device in project config, please check.')
-            self.initAndroidDevices(androidDevices)
-            self.initIosDevices(iosDevices)
-            self.initTestDevice(testDevices)
+        isReadEnvConfig = self.config.get('isReadEnvConfig','')
+        if "true" == isReadEnvConfig.lower():
+            self.readExcelEnvConfig()
+        else:
+            devices = self.config.get('devices', {})
+            if devices:
+                enable = devices.get('enable', "true")
+                if "true" != enable.lower():
+                    return
+                androidDevices = devices.get('AndroidDevices', [])
+                iosDevices = devices.get('IosDevices', [])
+                testDevices = devices.get('TestDevices', [])
+                if len(androidDevices) == 0 and len(iosDevices) == 0 and len(testDevices) == 0:
+                    raise ErrorConfigException('not found any device in project config, please check.')
+                
+                self.initAndroidDevices(androidDevices)
+                self.initIosDevices(iosDevices)
+                self.initTestDevice(testDevices)
+            
+    def readExcelEnvConfig(self, sheetName='envconfig'):
+        '''
+        @summary: 从excel读取配置信息
+        '''
+        testDeviceslist = []
+        filePath = os.path.join(VAR.CurProject.RootPath, 'resource', 'envconfig.xlsx')
+        if not os.path.exists(filePath):
+            raise ErrorConfigException('%s no exists '% filePath)
+        excelRead = xlrd.open_workbook(filePath)
+        sceneSheet = excelRead.sheet_by_name(sheetName)
+        header = sceneSheet.row_values(0)
+        for rowNum in range(1, sceneSheet.nrows):
+            sceneData = sceneSheet.row_values(rowNum)
+            testDeviceslist.append(dict(zip(header, sceneData)))
+        self.initTestDevice(testDeviceslist)
+        
 
     def initAndroidDevices(self, deviceList):
         if deviceList:
@@ -113,5 +136,5 @@ class ProjectConfig(object):
 if __name__ == "__main__":
     config = ProjectConfig()
     config.parseProjectConfig()
-    print(DEVICE)
+    print('device', DEVICE)
     print(VAR, len(VAR))

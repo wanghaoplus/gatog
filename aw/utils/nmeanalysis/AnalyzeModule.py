@@ -400,6 +400,7 @@ class AnalyzeModule():
             temp_data = round(temp_data, 2)
             temp_data = format(temp_data, '.2f')
             tab_data_position_list.append(temp_data)
+            
         # ave sat num
         uesdSV_data = DataFrame(extra_data, columns=general_data_col)[['SACount']]
         uesdSV_data = uesdSV_data[~uesdSV_data['SACount'].isin([''])]
@@ -469,16 +470,6 @@ class AnalyzeModule():
             ratio_mileage = 100 * (test_mileage - novatel_mileage) / novatel_mileage
             ratio_mileage = round(ratio_mileage, 2)
             tab_data_position_list.append(ratio_mileage)
-
-        
-        extra_data = self.data_container.get(test_device).get('general_data')
-        if len(extra_data) == 0:
-            tab_data_position_list.append('NONE')
-        else:
-            num = len(extra_data)
-            temp_data = (1.0 - (self.time_difference - num) / self.time_difference) * 100
-            temp_data = format(temp_data, '.2f')
-            tab_data_position_list.append(temp_data)
 
         self.statistics_dict[kpi][test_device] = tab_data_position_list
 
@@ -861,7 +852,7 @@ class AnalyzeModule():
     @LBSDector(True)
     def export_position_error_table_html(self, error_name):
         kpi_name_data = ['50%', '68%', '95%', '98%', 'MIN', 'MAX', 'MEAN', 'STD', 'AVE_TOP5_CNO',
-                         'AVE_SAT_NUM', 'Position Yield', 'undershoot (%)', 'undershoot mean', "test_mileage (m)", "novatel_mileage (m)", "ratio (%)", 'Position Yield']
+                         'AVE_SAT_NUM', 'Position Yield', 'undershoot (%)', 'undershoot mean', "test_mileage (m)", "novatel_mileage (m)", "ratio (%)"]
         col_datas, show_device_list = self._get_col_data(kpi_name_data, error_name)
         self.htm_mgr.export_kpi_error_js(col_datas, show_device_list, kpi_name_data, error_name)
         self._export_error_table_excel(col_datas, show_device_list, kpi_name_data, error_name)

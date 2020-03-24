@@ -16,6 +16,8 @@ from aw.core.Input import LbsTestCaseBase
 from aw.core.Input import getInstruments
 from aw.devices.LbsManager import LbsManager
 from aw.utils.scenemanager.SceneManager import SceneManager
+from aw.utils.reportarchive.ReportArchive import ReportArchive
+from aw.core.Input import getCurCaseConfig
 
 
 class LbsTestCase(LbsTestCaseBase):
@@ -64,6 +66,9 @@ class LbsTestCase(LbsTestCaseBase):
     def teardown(self):
         super(LbsTestCase, self).teardown()
         self.lbs.aw_stopReadPort()
+        if getCurCaseConfig()['isArchive'].lower() == 'true':
+            ReportArchive().copyLogToServer(week=self.lbs.deviceList[1]['week'])
+        
 
     def setupStep(self, msg):
         super(LbsTestCase, self).setupStep(msg)

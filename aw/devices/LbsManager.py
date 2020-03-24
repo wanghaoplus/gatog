@@ -24,7 +24,7 @@ class LbsManager(object):
     def __init__(self):
         self.manager = LbsManagerBase()
         self.manager.initDevice()
-        self.manager.setDebugInfo('open')
+        self.manager.setDebugInfo('close')
         self.deviceList = self.manager.deviceList
         
 
@@ -68,6 +68,12 @@ class LbsManager(object):
         @attention: 如果是tracking测试，定位成功后会将queue队列关闭
         '''
         return self.manager.checkLocationSuccess(timeout,isTracking)
+    
+    def aw_getStartTTFFFromPC(self):
+        '''
+        @summary: 获取PC时间
+        '''
+        return self.manager.getStartTTFFFromPC()
         
     def aw_calculateTTFF(self):
         '''
@@ -164,11 +170,47 @@ class LbsManager(object):
     def aw_setSleepMode(self, mode='Sleep', time=0):
         return self.manager.setSleepMode(mode, time)
     
+    def aw_setFirmwareSleep(self, sleepTime=1, deviceSn='all'):
+        
+        return self.setFirmwareSleep(sleepTime, deviceSn)
+    
     def aw_powerAllOff(self, device='all'):
         '''
         @summary: 全部断电
         @param device:测试设备名称 '''
         return self.manager.powerAllOff(device)
+    
+    def aw_setPowerOff(self, mode, dutNum, pwrDelayTime=0, timeout=0):
+        '''
+        @summary: 设置测试板断电上电方式
+        @param pwrType:电源模式选择
+        @param main:主电
+        @param back:备电
+        @param boot:调试模式
+        @param reset: reset gpio 拉低
+        @param prtrg: prtrg gpio 拉低
+        @param dutNum: 0-15 选择对应的dut 16 全部dut
+        @param pwrStatus: 0 下电  1 上电
+        @param pwrDelayTime:
+        @param reset:  延迟时间   单位毫秒
+        '''
+        return self.manager.setPowerOff(mode, dutNum, pwrDelayTime, timeout)
+    
+    def aw_setPowerOn(self, mode, dutNum, pwrDelayTime=0):
+        '''
+        @summary: 设置测试板断电上电方式
+        @param pwrType:电源模式选择
+        @param main:主电
+        @param back:备电
+        @param boot:调试模式
+        @param reset: reset gpio 拉低
+        @param prtrg: prtrg gpio 拉低
+        @param dutNum: 0-15 选择对应的dut 16 全部dut
+        @param pwrStatus: 0 下电  1 上电
+        @param pwrDelayTime:
+        @param reset:  延迟时间   单位毫秒
+        '''
+        return self.manager.setPowerOn(mode, dutNum, pwrDelayTime)
     
     def aw_powerMainOff(self, device='all'):
         '''
@@ -185,7 +227,7 @@ class LbsManager(object):
         @summary: 调用分析工具分析
         @param starttime:场景开始 
         @param endtime:场景结束时间
-        @param fileName:场景文件名
+        @param isSingle:是否单点分析
         @param sceneId:场景编号 
         @param latRef: 经度值
         @param lonRef: 纬度值  
@@ -234,7 +276,6 @@ class LbsManager(object):
         config['timeSlicing']['endtime'] = endtime
         config['satelliteInfo'] = comDict
         if latRef and lonRef and altRef:
-            config['is_need_single_analysis'] = True
             config['is_need_static_kpi'] = True
             config['static_kpi_values']['ref_longitude'] = lonRef
             config['static_kpi_values']['ref_latitude'] = latRef
@@ -270,7 +311,10 @@ class LbsManager(object):
             elif temp.endswith('.txt') and temp.split('.')[0] != 'novatel':
                 deviceInfo['timeZone'] = 0
                 deviceInfo['feature'] = 'nmea'
-                deviceInfo['tech'] = temp.split('_')[0]
+                if temp[:2].isdigit():
+                    deviceInfo['tech'] = 'ip' + temp.split('_')[0].split('.')[-1]+'_' + temp.split('_')[1]
+                else:
+                    deviceInfo['tech'] = temp.split('_')[0]
                 deviceInfo['type'] = 'test'
                 deviceInfo['file_path'] = os.path.join(path, temp)
                 config['deviceInfo'].append(deviceInfo)

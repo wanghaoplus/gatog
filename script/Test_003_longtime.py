@@ -6,6 +6,7 @@
 # @File    : Test_003_longtime.py
 # @Software: VSCode
 
+import time
 from aw.LbsTestCase import LbsTestCase
 
 class Test_003_longtime(LbsTestCase):
@@ -13,6 +14,7 @@ class Test_003_longtime(LbsTestCase):
     def __init__(self):
         super(Test_003_longtime, self).__init__()
         self.TestCaseList = ["Test_003_longtime"]
+        self.start_time = time.time()
 
     def setup(self):
         super(Test_003_longtime, self).setup()
@@ -25,14 +27,14 @@ class Test_003_longtime(LbsTestCase):
         self.testStep('发起冷启动定位')
         self.assertSuc(self.lbs.aw_startLocation('hot'))
         
-        self.sleep(200)
+        self.sleep(100)
 
         self.testStep('停止读取nmea信息')
         self.assertSuc(self.lbs.aw_stopReadPort())
 
         self.testStep('测试结果分析')
 
-        self.sceneData['utcEndTime'] = self.sceneData['utcStartTime'] + 200
+        self.sceneData['utcEndTime'] = self.sceneData['utcStartTime'] + (time.time() - self.start_time)
         self.lbs.aw_nmeanalysis( self.sceneData['utcStartTime'], self.sceneData['utcEndTime'], None, self.lon, self.lat, self.hgt)
     def teardown(self):
         super(Test_003_longtime, self).teardown()

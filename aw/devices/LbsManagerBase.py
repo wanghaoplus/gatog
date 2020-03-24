@@ -24,6 +24,7 @@ from aw.devices.LbsContants import DEVICE_CMD
 from aw.devices.LbsContants import CMD
 from aw.core.SocketBase import SocketClient
 from aw.core.SerialBase import SerialBase
+from aw.instruments.TestBoard.TestBoard import TestBoard
 LbsManagerBaseObj = None
 
 
@@ -54,15 +55,19 @@ class LbsManagerBase(object):
                 sock.setDeviceMsg(device)
                 sn = str(ip) + '_' + str(port)
                 deviceType = device.get('deviceType')
-                self.deviceList.append({'sn':sn, 'deviceType':deviceType, 'obj':sock})
+                testBoard = device.get('testBoard')
+                self.deviceList.append({'sn':sn, 'deviceType':deviceType, 'obj':sock, 'testBoard':testBoard, 'connectType':'socket'})
                 sock.connect()
             elif device["connectType"].lower() == 'usb':
-                serl = SerialBase(device['port'])
+                baudRate=device.get('baudRate', 115200)
+                serl = SerialBase(device['port'], baudRate)
                 serl.setDeviceMsg(device)
                 sn = device['port']
                 deviceType = device.get('deviceType')
-                self.deviceList.append({'sn':sn, 'deviceType':deviceType, 'obj':serl})
+                testBoard = device.get('testBoard')
+                self.deviceList.append({'sn':sn, 'deviceType':deviceType, 'obj':serl, 'testBoard':testBoard, 'connectType':'usb'})
                 serl.connect()
+        
         self.startReadPort()
         # 连接
         pass
@@ -90,7 +95,7 @@ class LbsManagerBase(object):
             deviceObj.stopReciver()
         return SUC, 'stop_success'
 
-    def sendCommand(self, cmd,deviceSn='all'):
+    def sendCommand(self, cmd, deviceSn='all'):
         for device in self.deviceList:
             deviceObj = device.get('obj')
             if deviceSn=='all':
@@ -198,12 +203,21 @@ class LbsManagerBase(object):
                     nmeaType, nmeaMsg = deviceObj.queue.get_nowait()
                     if nmeaType == 'GGA':
                         ggaMsgs = nmeaMsg.split(',')
-                        if ggaMsgs[5] != '0' and ggaMsgs[5] != '':
-                            sucDeviceDict[sn] = "GGA:" + nmeaMsg
-                            self.ttffEndTimeDict[sn] = ggaMsgs[0]
-                            self.firstLocationDict[sn] = {'lat':ggaMsgs[1], 'lon':ggaMsgs[3],
-                                                          'alt':float(ggaMsgs[8]) + float(ggaMsgs[10])}
-                            break
+                        try:
+                            if ggaMsgs[5] != '0' and ggaMsgs[5] != '':
+                                sucDeviceDict[sn] = "GGA:" + nmeaMsg
+#                                 self.ttffEndTimeDict[sn] = ggaMsgs[0]
+                                self.ttffEndTimeDict[sn] = {'pcEndTime': time.time(), 'utc':ggaMsgs[0]}
+                                if ggaMsgs[10] != '':
+                                    alt = float(ggaMsgs[8]) + float(ggaMsgs[10])
+                                else:
+                                    alt = float(ggaMsgs[8])
+                                self.firstLocationDict[sn] = {'lat':ggaMsgs[1], 'lon':ggaMsgs[3],
+                                                              'alt':alt}
+                                break
+                        except:
+                            print(sn, nmeaMsg)
+                            raise
                 else:
                     time.sleep(0.9)
 
@@ -248,9 +262,15 @@ class LbsManagerBase(object):
             lat = self.firstLocationDict.get(sn, {}).get('lat', '')
             lon = self.firstLocationDict.get(sn, {}).get('lon', '')
             alt = self.firstLocationDict.get(sn, {}).get('alt', '')
-            fixTime = self.ttffEndTimeDict.get(sn, '')
+            fixTime = self.ttffEndTimeDict.get(sn, {}).get('utc', '')
+            utc = valueDict.get('utc')
+            
             fixFlag = 1 if fixTime else 0
-            dataList = [sn, valueDict['utc'], fixTime, lat, lon, alt, fixFlag]
+            if 'pcStartTime' in valueDict:
+                pcEndTime = self.ttffEndTimeDict.get(sn)['pcEndTime']
+                utc = self.__formatUTCTime(fixTime, pcEndTime, valueDict['pcStartTime'])
+                
+            dataList = [sn, utc, fixTime, lat, lon, alt, fixFlag]
             SingleCaseReport.getInstance().aw_writeRow("FirstFixCepTTFF", dataList)
         SingleCaseReport.getInstance().aw_save()
         
@@ -284,7 +304,7 @@ class LbsManagerBase(object):
             startUtc = valueDict['utc']
             startTime = int(startUtc[:2]) * 3600 + int(startUtc[2:4]) * 60 + int(startUtc[4:6]) + float(startUtc.split('.')[-1]) / 1000
             if sn in self.ttffEndTimeDict:
-                endUtc = self.ttffEndTimeDict[sn]
+                endUtc = self.ttffEndTimeDict[sn]['utc']
                 endTime = int(endUtc[:2]) * 3600 + int(endUtc[2:4]) * 60 + int(endUtc[4:6]) + float(endUtc.split('.')[-1]) / 1000
                 ttffDict[sn] = endTime - startTime
         return SUC, ttffDict
@@ -453,44 +473,35 @@ class LbsManagerBase(object):
         titude_f = float(d) + float('%s.%s' % (mm, mmmm)) / 60
         return titude_f
     
-    def get7000StandardNMEA(self, sceneId, rmSrcFlag=True):
-        posAppLogPath = getInstruments().get('Gss7000', {}).get('posAppLogPath')
-        gssType = getInstruments().get('Gss7000', {}).get('gssType')
-        if not os.path.exists(posAppLogPath):
-            return FAIL, 'please check posAppLogPath.'
-        if gssType == '7000':
-            isSuc(self.sendMsg2Gss7000Server({'sceneId':sceneId}))
-        srcPath = os.path.join(posAppLogPath, sceneId, 'nmea.txt')
-        dstPath = os.path.join(getLbsCaseLogPath(), 'novatel.txt')
-        if not os.path.exists(srcPath):
-            return FAIL, 'has no nmea.txt'
-        shutil.copyfile(srcPath, dstPath)
-        if rmSrcFlag:
-            shutil.rmtree(os.path.join(posAppLogPath, sceneId, 'nmea.txt'))
-        return SUC, dstPath
+    def getStartTTFFFromPC(self):
+        '''
+        @summary: 获取PC时间
+        '''
+        for device in self.deviceList:
+            sn = device.get('sn')
+            testBoard = device.get('testBoard')
+            connectType = device.get('connectType')
+            self.ttffStartTimeDict[sn]['pcStartTime'] = time.time()
+        return SUC, 'OK'
     
-    def sendMsg2Gss7000Server(self, cmd):
-        import socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(5)
-        try:
-            s.connect((self.__host, self.__port))
-            s.send(str(cmd).encode("utf-8"))
-            endTime = time.time() + 120
-            while time.time() < endTime:
-                try:
-                    msg = s.recv(1024)
-                    recvMsg = eval(msg.decode())
-                    if recvMsg.get('state') == 'okay':
-                        return SUC, 'okay'
+    def __getStartGgaData(self, sn, deviceObj, timeout):
+        deviceObj.setParseNmeaEnable(True)
+        startFlag = False
+        endTime = time.time() + timeout
+        while time.time() < endTime:
+            if deviceObj.queue.empty():
+                time.sleep(1)
+                continue
+            msgType, msg = deviceObj.queue.get_nowait()
+            if msgType == 'GGA':
+                utc = msg.split(',')[0]
+                if utc:
+                    if sn not in self.ttffStartTimeDict:
+                        self.ttffStartTimeDict[sn] = {'utc':utc}
                     else:
-                        return FAIL, 'please check server right.'
-                except:
-                    time.sleep(2)
-        except:
-            s.close()
-            return FAIL, 'please check server right.'
-                
+                        self.ttffStartTimeDict[sn]['utc'] = utc
+        pass
+    
     def setPowerEnable(self, isEnable=True):
 
         if isEnable:
@@ -504,15 +515,115 @@ class LbsManagerBase(object):
     def setFactory(self):
         
         pass
+    
     def powerMainOff(self, device='all'):
         '''
         @summary: 断设备主电
         @param device:测试设备名称 '''
-        cmd = DEVICE_CMD['hdbd'].POWER_OFF_ALL
+        cmd = DEVICE_CMD['hdbd'].POWER_MAIN_OFF
         self.sendCommand(cmd, device)
         return SUC, 'OK'
     
-    def powerAllOff(self, device):
+    @AutoPrint(True)
+    def setPowerOff(self, mode, dutNum, pwrDelayTime, timeout=0):
+        '''
+        @summary: 设置测试板断电上电方式
+        @param pwrType:电源模式选择
+        @param main:主电
+        @param back:备电
+        @param boot:调试模式
+        @param reset: reset gpio 拉低
+        @param prtrg: prtrg gpio 拉低
+        @param dutNum: 0-15 选择对应的dut 16 全部dut
+        @param pwrStatus: 0 下电  1 上电
+        @param pwrDelayTime:
+        @param reset:  延迟时间   单位毫秒
+        '''
+        if mode.lower() not in ['main', 'back', 'boot', 'reset', 'prtrg']:
+            return FAIL, 'has no this mode:%s' % mode
+        for device in self.deviceList:
+            newThreadFunc(self.__setPower, args=(device, mode, dutNum, 0, pwrDelayTime, timeout), daemon=True)
+            
+        endTime = time.time() + timeout
+        while time.time() < endTime:
+            time.sleep(1)
+            if len(self.ttffStartTimeDict) == len(self.deviceList):
+                return SUC, 'OK'
+           
+        failDeviceList = []
+        for device in self.deviceList:
+            if device.get('sn') not in self.ttffStartTimeDict:
+                failDeviceList.append(device.get('sn'))
+                
+        return FAIL, failDeviceList
+    
+    @AutoPrint(True)
+    def setPowerOn(self, mode, dutNum,  pwrDelayTime):
+        
+        for device in self.deviceList:
+            
+            sn = device.get('sn')
+            testBoard = device.get('testBoard')
+            connectType = device.get('connectType')
+            self.ttffStartTimeDict[sn]['pcPowerOnTime'] = time.time()
+            
+            TestBoard(connectType, testBoard).aw_testBoardPowerSet(mode, dutNum, 1, pwrDelayTime)
+    
+        for sn, msgdict in self.ttffStartTimeDict.items():
+            startUtc = str(msgdict['utc'])
+            pcstartTime = msgdict['pcPowerOnTime']
+            pcEndTime = msgdict['pcPowerOffTime'] 
+            utc = self.__formatUTCTime(startUtc, pcstartTime, pcEndTime)
+            
+                 
+            self.ttffStartTimeDict[sn]['utc'] = utc 
+        self.ttffStartTimeDict[sn]['pcPowerOnTime'] = time.time()
+        return SUC, 'OK'  
+    
+    def __formatUTCTime(self, startUtc, pcstartTime, pcEndTime):
+        if len(startUtc.split('.')[0])<6:
+            startUtc = '0'*(6 -len(startUtc.split('.')[0]))+ startUtc
+            
+        startTime = int(startUtc[:2]) * 3600 + int(startUtc[2:4]) * 60 + int(startUtc[4:6]) + float(startUtc.split('.')[-1]) / 1000
+        utcStartTime = startTime + (pcEndTime -pcstartTime)
+        utcStartTimeInt = int(str(utcStartTime).split('.')[0])
+        hour = int((utcStartTimeInt-utcStartTimeInt%3600)/3600)
+        min = int((utcStartTimeInt- 3600*hour -(utcStartTimeInt- 3600*hour)%60)/60)
+        seconds = int(utcStartTimeInt- min * 60 -hour *3600)
+        if len(str(hour))==1:
+            hour = '0' + str(hour)
+        if len(str(min))==1:
+            min = '0' + str(min)
+        if len(str(seconds))==1:
+            seconds = '0' + str(seconds)
+        return str(hour) + str(min) + str(seconds) + '.' + str(round(float('0.' + str(utcStartTime).split('.')[-1]), 3)).split('.')[-1]
+    
+    def __setPower(self, device, mode, dutNum, pwrStatus, pwrDelayTime, timeout):
+        
+        sn = device.get('sn')
+        deviceObj = device.get('obj')
+        testBoard = device.get('testBoard')
+        connectType = device.get('connectType')
+        
+        deviceObj.setParseNmeaEnable(True)
+        endTime = time.time() + timeout
+        while time.time() < endTime:
+            if deviceObj.queue.empty():
+                time.sleep(1)
+                continue
+            msgType, msg = deviceObj.queue.get_nowait()
+            if msgType == 'GGA':
+                utc = msg.split(',')[0]
+                if utc:
+                    TestBoard(connectType, testBoard).aw_testBoardPowerSet(mode, dutNum, pwrStatus, pwrDelayTime)
+                    if sn not in self.ttffStartTimeDict:
+                        self.ttffStartTimeDict[sn] = {}
+                    self.ttffStartTimeDict[sn]['utc'] = utc
+                    self.ttffStartTimeDict[sn]['pcPowerOffTime'] = time.time()
+                    break
+            
+                        
+    def powerOn(self, device):
         '''
         @summary: 全部断电
         @param device:测试设备名称 '''
@@ -539,6 +650,12 @@ class LbsManagerBase(object):
         cmd = DEVICE_CMD['hdbd'].SAVE_DEBUG_CONFIG
         self.sendCommand(cmd)
         return SUC, 'OK'
+    
+    def setFirmwareSleep(self, sleepTime=1, deviceSn='all'):
+        if sleepTime==1:
+            cmd = DEVICE_CMD['hdbd'].SLEEP_1S
+            self.sendCommand(cmd, deviceSn)
+        return SUC,'OK'
     
     def downloadEphemeris(self, remoteFile):
         localPath=r'D:\LbsEphemeris'

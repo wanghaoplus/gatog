@@ -32,11 +32,11 @@ class Test_001(LbsTestCase):
         for i in range(100):
             self.testStep("发起冷启动定位")
             self.lbs.aw_startLocation(mode='cold', timeout=20)   
-    #         self.sleep(90)
-                 
+            #self.sleep(90)
+            
             self.testStep("获取是否定位成功")
             self.lbs.aw_checkLocationSuccess(timeout=120)
-             
+            
             self.testStep("获取ttff")
             ret1 = self.assertSuc(self.lbs.aw_calculateTTFF())
             result_ttff_list.append(ret1) 
