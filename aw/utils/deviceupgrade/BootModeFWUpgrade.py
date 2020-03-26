@@ -67,7 +67,7 @@ def sendfwboot(port, addr, cnt, data, lenth):
     port.write(ck)
 
 
-# BOOT 升级协议及升级
+# BOOT鍥轰欢鐑у啓
 def fw_update_boot(port, data, lenth, address):
     progress_status = 0
     count = int(lenth / 1024)
@@ -106,7 +106,7 @@ def terminate_program(msg, val):
     sys.exit(val)
 
 
-#主函数
+    
 def BootModeFWUpgrade(dut_port, device, path ):
 
     cyfm_file = read_into_buffer(path)

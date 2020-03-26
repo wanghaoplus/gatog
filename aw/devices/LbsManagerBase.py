@@ -33,6 +33,7 @@ class LbsManagerBase(object):
     ttffStartTimeDict = {}  # 存储所有设备开始定位时间
     ttffEndTimeDict = {}  # 存储所有设备定位成功时间
     firstLocationDict = {}  # 存储所有设备首次定位位置
+    rtcmcha = []
 
     def __init__(self):
         pass
@@ -102,8 +103,8 @@ class LbsManagerBase(object):
                 deviceObj.send(cmd)
             elif deviceSn in device:
                 deviceObj.send(cmd)
-            
-    def __startLocation(self, sn, deviceObj, deviceType, mode='cold', timeout=30):
+                
+    def __startLocation(self, sn, deviceObj, deviceType, mode='cold', timeout=30, checkGGA=True):
         '''
         @summary: 单个设备发起冷/热/温启动定位
         @param sn: 设备编号
@@ -116,6 +117,18 @@ class LbsManagerBase(object):
         @attention: 
         '''
         deviceObj.setParseNmeaEnable(True)
+        if checkGGA is False:
+            if mode.lower() == 'cold':
+                deviceObj.send(DEVICE_CMD[deviceType].CMD_COLD_START)
+            elif mode.lower() == 'warm':
+                deviceObj.send(DEVICE_CMD[deviceType].CMD_WARM_START)
+            elif mode.lower() == 'hot':
+                deviceObj.send(DEVICE_CMD[deviceType].CMD_HOT_START)
+            if sn not in self.ttffStartTimeDict:
+                self.ttffStartTimeDict[sn]={}
+            self.ttffStartTimeDict[sn]['pcStartTime'] = time.time()
+            self.ttffStartTimeDict[sn]['cmdState'] = SUC
+            return
         startFlag = False
         endTime = time.time() + timeout
         while time.time() < endTime:
@@ -144,7 +157,7 @@ class LbsManagerBase(object):
                 break
     
     @AutoPrint(True)          
-    def startLocation(self, mode='cold', timeout=60):
+    def startLocation(self, mode='cold', timeout=60, checkGGA=True):
         '''
         @summary: 发起冷/热/温启动定位
         @param mode: 启动方式
@@ -161,7 +174,7 @@ class LbsManagerBase(object):
             sn = device.get('sn')
             deviceObj = device.get('obj')
             deviceType = device.get('deviceType')
-            newThreadFunc(self.__startLocation, args=(sn, deviceObj, deviceType, mode, timeout), daemon=True)
+            newThreadFunc(self.__startLocation, args=(sn, deviceObj, deviceType, mode, timeout, checkGGA), daemon=True)
         
         sucDevices = []
         endTime = time.time() + timeout
@@ -185,7 +198,7 @@ class LbsManagerBase(object):
         return FAIL, '发起定位失败的设备：%s' % str(failDevices)
     
     @AutoPrint(True)
-    def checkLocationSuccess(self, timeout=60,isTracking=False):
+    def checkLocationSuccess(self, timeout=60,isTracking=False,recordData=True):
         '''
         @summary: 检查设备是否定位成功
         @param timeout: 超时时间
@@ -234,8 +247,9 @@ class LbsManagerBase(object):
                 break
             time.sleep(1)
         
-        PRINTI("将首次定位信息写入表格")
-        self.writeFirstFixLocationTTFF()
+        if recordData:
+            PRINTI("将首次定位信息写入表格")
+            self.writeFirstFixLocationTTFF()
         if isTracking:
             for device in self.deviceList:
                 sn = device.get('sn')
@@ -255,6 +269,67 @@ class LbsManagerBase(object):
                 PRINTE(sn + '[定位失败]')
         return FAIL, failDevices
     
+    @AutoPrint(True)
+    def checkLocationFail(self, timeout=60,isTracking=False):
+        '''
+        @summary: 检查设备是否失去定位
+        @param timeout: 超时时间
+        @return: (SUC, success info) or (FAIL, fail info)
+        @see: self.hdbd.checkLocationFail(120)
+        @author: shaochanghong
+        @attention: 对tracking场景不适用
+        '''
+        sucDeviceDict = {}
+
+        def check(sn, deviceObj):
+            endTime = time.time() + timeout
+            while time.time() < endTime:
+                if not deviceObj.queue.empty():
+                    nmeaType, nmeaMsg = deviceObj.queue.get_nowait()
+                    if nmeaType == 'GGA':
+                        ggaMsgs = nmeaMsg.split(',')
+                        try:
+                            if ggaMsgs[5] == '0' or ggaMsgs[5] == '':
+                                sucDeviceDict[sn] = "GGA:" + nmeaMsg
+                                break
+                        except:
+                            print(sn, nmeaMsg)
+                            raise
+                else:
+                    time.sleep(0.9)
+
+        for device in self.deviceList:
+            sn = device.get('sn')
+            deviceObj = device.get('obj')
+            deviceObj.setParseNmeaEnable(True)
+            newThreadFunc(check, args=(sn, deviceObj), daemon=True)
+        PRINTI("正在查询定位结果，请耐心等待...")
+        
+        endTime = time.time() + timeout
+        while time.time() < endTime:
+            if len(sucDeviceDict) == len(self.deviceList):
+                break
+            time.sleep(1)
+        
+        if isTracking:
+            for device in self.deviceList:
+                sn = device.get('sn')
+                deviceObj = device.get('obj')
+                deviceObj.setParseNmeaEnable(False)
+        
+        if len(sucDeviceDict) == len(self.deviceList):
+            return SUC,'所有设备失去定位'
+            
+        failDevices = []
+        for device in self.deviceList:
+            sn = device.get('sn')
+            if sn in sucDeviceDict:
+                PRINTI(sn + '[%s]' % sucDeviceDict.get(sn))
+            else:
+                failDevices.append(sn)
+                PRINTE(sn + '[定位成功]')
+        return FAIL, failDevices
+    
     def writeFirstFixLocationTTFF(self):
         from aw.utils.kpireport.SingleReport import SingleCaseReport
         SingleCaseReport.getInstance().curTimes += 1
@@ -267,8 +342,9 @@ class LbsManagerBase(object):
             
             fixFlag = 1 if fixTime else 0
             if 'pcStartTime' in valueDict:
-                pcEndTime = self.ttffEndTimeDict.get(sn)['pcEndTime']
-                utc = self.__formatUTCTime(fixTime, pcEndTime, valueDict['pcStartTime'])
+                pcEndTime = self.ttffEndTimeDict.get(sn, {}).get('pcEndTime')
+                if pcEndTime:
+                    utc = self.__formatUTCTime(fixTime, pcEndTime, valueDict['pcStartTime'])
                 
             dataList = [sn, utc, fixTime, lat, lon, alt, fixFlag]
             SingleCaseReport.getInstance().aw_writeRow("FirstFixCepTTFF", dataList)
@@ -301,12 +377,17 @@ class LbsManagerBase(object):
         '''
         ttffDict = {}
         for sn, valueDict in self.ttffStartTimeDict.items():
-            startUtc = valueDict['utc']
-            startTime = int(startUtc[:2]) * 3600 + int(startUtc[2:4]) * 60 + int(startUtc[4:6]) + float(startUtc.split('.')[-1]) / 1000
+            if 'utc' in valueDict:
+                startUtc = valueDict['utc']
+                startTime = int(startUtc[:2]) * 3600 + int(startUtc[2:4]) * 60 + int(startUtc[4:6]) + float(startUtc.split('.')[-1]) / 1000
             if sn in self.ttffEndTimeDict:
                 endUtc = self.ttffEndTimeDict[sn]['utc']
+                if 'pcStartTime' in valueDict:
+                    pcEndTime = self.ttffEndTimeDict.get(sn)['pcEndTime']
+                    startUtc = self.__formatUTCTime(endUtc, pcEndTime, valueDict['pcStartTime'])
+                    startTime = int(startUtc[:2]) * 3600 + int(startUtc[2:4]) * 60 + int(startUtc[4:6]) + float(startUtc.split('.')[-1]) / 1000
                 endTime = int(endUtc[:2]) * 3600 + int(endUtc[2:4]) * 60 + int(endUtc[4:6]) + float(endUtc.split('.')[-1]) / 1000
-                ttffDict[sn] = endTime - startTime
+                ttffDict[sn] = round(endTime - startTime,3)
         return SUC, ttffDict
     
     @AutoPrint(True)
@@ -479,8 +560,8 @@ class LbsManagerBase(object):
         '''
         for device in self.deviceList:
             sn = device.get('sn')
-            testBoard = device.get('testBoard')
-            connectType = device.get('connectType')
+            if sn not in self.ttffStartTimeDict:
+                self.ttffStartTimeDict[sn]={}
             self.ttffStartTimeDict[sn]['pcStartTime'] = time.time()
         return SUC, 'OK'
     

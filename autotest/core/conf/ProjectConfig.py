@@ -8,6 +8,10 @@
 import os
 import json
 import xlrd
+#import sys
+#if(1):
+#    sys.path.append(os.path.abspath(os.getcwd()))#设置函数所在目录
+#    print (sys.path[-1]) #打印设置目录
 from autotest.core.modle.Variable import VAR
 from autotest.core.modle.Variable import DEVICE
 from autotest.core.modle.CustomException import NoProjectConfigException

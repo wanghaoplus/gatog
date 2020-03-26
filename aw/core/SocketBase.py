@@ -22,7 +22,7 @@ class SocketClient(LogChangeListner):
     def __init__(self, host=None, port=None):
         super(SocketClient, self).__init__()
         self.__host = host
-        self.__port = port
+        self.__port = int(port)
         self.deviceSN = host + "_" + str(port)
 
     @property
@@ -49,7 +49,6 @@ class SocketClient(LogChangeListner):
             self.__client = self._connect()
 
     def send(self, cmd):
-        print(cmd)
         self.client.send(cmd)
         
     def startReciver(self):

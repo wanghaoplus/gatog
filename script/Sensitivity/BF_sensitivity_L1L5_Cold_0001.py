@@ -26,9 +26,13 @@ class BF_sensitivity_L1L5_Cold_0001(LbsTestCase):
         
         self.setupStep("选择要播放场景")
         self.assertSuc(self.gss7000.aw_GSS7000SelectScenario(self.sceneFile))
-        
+         
         self.setupStep("开始播放场景")
         self.assertSuc(self.gss7000.aw_GSS7000RunScenario())
+        
+        self.setupStep("发起冷启动定位，使芯片的utc切换到当前场景时间")
+        self.assertSuc(self.lbs.aw_startLocation('cold', checkGGA=False))
+        self.assertSuc(self.lbs.aw_checkLocationSuccess(300, recordData=False))
         
     def BF_sensitivity_L1L5_Cold_0001(self):
         resultHdbdDict = {}  # 北斗办标准测试结果

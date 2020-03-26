@@ -39,6 +39,9 @@ class BF_sensitivity_L1L5_Tracking_0001(LbsTestCase):
         self.testStep('模拟器信号设置 %sdBm' % str(curDBM))
         self.assertSuc(self.gss7000.aw_Gss7000SetSignalLevel(curDBM))
         
+        self.testStep('获取当前时间')
+        self.assertSuc(self.lbs.aw_getStartTTFFFromPC())
+        
         self.testStep('定位成功后等待120s')
         self.assertSuc(self.lbs.aw_checkLocationSuccess(300))
         self.sleep(120)
@@ -49,12 +52,15 @@ class BF_sensitivity_L1L5_Tracking_0001(LbsTestCase):
         
         while True:
             
+            self.testStep('重置测试数据')
+            self.assertSuc(self.lbs.aw_resetTestData())
+            
             self.testStep('将信号衰减1db，模拟器信号设置 %sdBm' % str(curDBM))
             curDBM -= stepDBM
             self.assertSuc(self.gss7000.aw_Gss7000SetSignalLevel(curDBM))
             
-            self.testStep('重置测试数据')
-            self.assertSuc(self.lbs.aw_resetTestData())
+            self.testStep('获取当前时间')
+            self.assertSuc(self.lbs.aw_getStartTTFFFromPC())
             
             self.testStep('检查120s内定位成功')
             locStatu, locRet = self.lbs.aw_checkLocationSuccess(120)

@@ -5,18 +5,42 @@
   "isGroupCase":"false",
   "isHandleDevice":"false",
   "isArchive":"false",
+<<<<<<< .mine
+  "isReadEnvConfig":"True",
+||||||| .r179
   "isReadEnvConfig":"True",
   "report"
+=======
+  "isReadEnvConfig":"false",
+>>>>>>> .r190
   "Instruments":{
+<<<<<<< .mine
+    "Gss7000":{
+          "type":"Gss7000",
+          "ip":"10.100.5.230",
+          "port":15650 
+      },
+||||||| .r179
 	"Gss7000":{
 	  		"type":"Gss7000",
-	  		"ip":"10.110.8.36",
+	  		"ip":"10.100.5.230",
 	  		"port":15650
 	  },
+=======
+	"Gss7000":{
+	  		"type":"Gss7000",
+	  		"ip":"10.100.5.178",
+	  		"port":15650
+	  },
+>>>>>>> .r190
 	  "Labsat":{
 	  		"type":"WIDEBAND",
 	  		"ip":"10.100.17.200",
 	  		"port":23
+	  },
+	  "VAM":{
+	  		"ip":"10.100.5.176",
+	  		"port":3000
 	  }
 	},
   "devices":{
@@ -30,6 +54,20 @@
       "connectType":"usb",
       "catchLog":{"enable":"true","log":[]}
       }
-      ]
+    ]
+  },
+
+  "diffposdata":{
+
+    "rtcm":{
+      "ip":"10.110.8.105",
+      "port":"6000",
+      "portBaud":"115200",
+      "deviceNode":"RTCM32",
+      "connectType":"socket",
+      "user":"",
+      "pass":""
     }
+  }
+  
 }

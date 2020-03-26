@@ -187,18 +187,10 @@ def UserModeFWUpgrade(iPort, iImgFile):
 
     # 监测进入升级模式
     recv = b'0'
-    recvlast = b'1'
-    recvCont = 0
-    while (recv != b'C' and recvlast != b'C' and recvCont < 512):
-        recvlast = recv
+    while (recv != b'C'):
         recv = comport.read(1)       ####################################  改为接受函数 
-        recvCont += 1
         print("recv type = ", type(recv), "recv = ", recv)
-    if(recvCont < 512):
-        print("into fwup mode succses")
-    else:
-        print("into fwup mode failed")
-        return -1
+    print("into fwup mode succses")
 
     if enDebug:
         time.sleep(0)
@@ -218,11 +210,9 @@ def UserModeFWUpgrade(iPort, iImgFile):
 
     comport.close()
 
-    return 0
-
 if __name__ == '__main__':
 
     #首先确保芯片为user模式
-    iPort = 4
-    iImgFile = "C:\\Users\\wanghao\\Desktop\\20191229-V8416\\HD8040D.BDO.GN3.115200.8416.f8ff1.281219T.cyfm"
-    rec = UserModeFWUpgrade(iPort, iImgFile)
+    iPort = 3
+    iImgFile = "F:\\固件\\HD8120Serial\\app7865UART0.cyfm"
+    UserModeFWUpgrade(iPort, iImgFile)

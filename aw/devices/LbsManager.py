@@ -45,7 +45,7 @@ class LbsManager(object):
         '''
         return self.manager.stopReadPort()
         
-    def aw_startLocation(self, mode='cold', timeout=60):
+    def aw_startLocation(self, mode='cold', timeout=60, checkGGA=True):
         '''
         @summary: 发起冷/热/温启动定位
         @param mode: 启动方式 cold/warm/hot
@@ -55,9 +55,9 @@ class LbsManager(object):
         @author: shaochanghong
         @attention: 接口内做对标gga信息处理，并记录冷启动时的gga时间作为启动定位开始时间
         '''
-        return self.manager.startLocation(mode, timeout)
+        return self.manager.startLocation(mode, timeout, checkGGA)
     
-    def aw_checkLocationSuccess(self, timeout=120, isTracking=False):
+    def aw_checkLocationSuccess(self, timeout=120, isTracking=False, recordData=True):
         '''
         @summary: 检查设备是否定位成功
         @param timeout: 超时时间
@@ -67,7 +67,19 @@ class LbsManager(object):
         @author: shaochanghong
         @attention: 如果是tracking测试，定位成功后会将queue队列关闭
         '''
-        return self.manager.checkLocationSuccess(timeout,isTracking)
+        return self.manager.checkLocationSuccess(timeout,isTracking,recordData)
+    
+    def aw_checkLocationFail(self, timeout=60,isTracking=False):
+        '''
+        @summary: 检查设备是否失去定位
+        @param timeout: 超时时间
+        @param isTracking: 是否是tracking测试
+        @return: (SUC, success info) or (FAIL, fail info)
+        @see: self.lbs.aw_checkLocationFail(120)
+        @author: shaochanghong
+        @attention: 如果是tracking测试，定位成功后会将queue队列关闭
+        '''
+        return self.manager.checkLocationFail(timeout,isTracking)
     
     def aw_getStartTTFFFromPC(self):
         '''

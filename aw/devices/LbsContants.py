@@ -28,18 +28,51 @@ class CMD(object):
     class UBLOX():
         CMD_COLD_START = b'\xb5\x62\x06\x04\x04\x00\xff\xff\x02\x79\x87\xda'
         CMD_HOT_START = b'\xb5\x62\x06\x04\x04\x00\x00\x00\x02\x79\x89\xe1'
+        CMD_WARM_START = bytes.fromhex('b5 62 06 04 04 00 01 00 02 00 11 6C')
         
     class BRCM():
-        CMD_COLD_START = ''
+        CMD_COLD_START = '$PQCOLD*05\r\n'.encode()
+        CMD_HOT_START = '$PQHOT*52\r\n'.encode()
+        CMD_WARM_START = '$PQWARM*08\r\n'.encode()
         
     class SONY():
         CMD_COLD_START = '@GCD\r\n'.encode()
         
         
     class MTK():
-        CMD_COLD_START = '$PMTK104*37'.encode()
-        CMD_HOT_START = '$PMTK101*32'.encode()
-        CMD_WARM_START = '$PMTK102*31'.encode()
+        CMD_COLD_START = '$PMTK104*37\r\n'.encode()
+        CMD_HOT_START = '$PMTK101*32\r\n'.encode()
+        CMD_WARM_START = '$PMTK102*31\r\n'.encode()
+    
+    class ZKW():
+        CMD_COLD_START = '$PCAS10,2*1E\r\n'.encode()
+        CMD_HOT_START = '$PCAS10,0*1C\r\n'.encode()
+        CMD_WARM_START = '$PCAS10,1*1D\r\n'.encode()
+        
+    class HX():
+        CMD_COLD_START = '$reset,0,h95\r\n'.encode()
+        CMD_HOT_START = '$reset,0,h00\r\n'.encode()
+        CMD_WARM_START = '$reset,0,h01\r\n'.encode()
+        
+    class GK():
+        CMD_COLD_START = '$PGKC030,3,1*2E\r\n'.encode()
+        CMD_HOT_START = '$PGKC030,1,1*2C\r\n'.encode()
+        CMD_WARM_START = '$PGKC030,2,1**2F\r\n'.encode()
+    
+    class MX():
+        CMD_COLD_START = '$reset,1,2\r\n'.encode()
+        CMD_HOT_START = '$reset,1,0\r\n'.encode()
+        CMD_WARM_START = '$reset,1,1**2F\r\n'.encode()
+    
+    class ST():
+        CMD_COLD_START = '$PHDCOLD,E\r\n'.encode()
+        CMD_HOT_START = '$PHDHOT\r\n'.encode()
+        CMD_WARM_START = '$PHDWARM\r\n'.encode()
+        
+    class HD8089():
+        CMD_COLD_START = '$PHDCOLD,E\r\n'.encode()
+        CMD_HOT_START = '$PHDHOT\r\n'.encode()
+        CMD_WARM_START = '$PHDWARM\r\n'.encode()
         
     # 二进制校验
     def binary_gen_crc(self, src_data):
@@ -248,7 +281,14 @@ class CMD(object):
 DEVICE_CMD = {'hdbd':CMD.HDBD,
             'ublox':CMD.UBLOX,
             'brcm':CMD.BRCM,
-            'sony':CMD.SONY}
+            'sony':CMD.SONY,
+            'mtk':CMD.MTK,
+            'zkw':CMD.ZKW,
+            'hx':CMD.HX,
+            'gk':CMD.GK,
+            'mx':CMD.MX,
+            'st':CMD.ST,
+            'hd8089':CMD.HD8089}
 
 
 if __name__ == '__main__':

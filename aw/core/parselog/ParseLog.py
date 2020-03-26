@@ -30,7 +30,7 @@ class LogChangeListner(object):
         self.startFlushTime = time.time()
         self.startParseFlag = False
         self.cmdMark = None
-        self.endLine = None
+        self.endLine = ''
         self.queue = Queue()
         
     def setDeviceMsg(self, device):
@@ -80,24 +80,16 @@ class LogChangeListner(object):
         self.flush()
         
     def collectNmeaLog(self, line):
-        line = str(line)[2:-1]
-        if self.endLine != None:
-            line = self.endLine + str(line)
-            
-        if not str(line).endswith(r'\r\n'):
-            self.endLine = str(line).split(r'\r\n')[-1]
-            end = -1
-        else:
-            end = len(line.split(r'\r\n')[0:])
-            self.endLine = None
-            
-        for nemaLine in line.split(r'\r\n')[0:end]:
-            if re.search('G.GGA', nemaLine):
-                ggaMsg = str(line).split('GGA,')[1]
+        line = self.endLine+str(line)[2:-1]
+        lineSplit=line.split(r'\r\n')
+        self.endLine=lineSplit[-1]
+        for nemaLine in lineSplit[0:-1]:
+            if re.search('GGA', nemaLine):
+                ggaMsg = str(nemaLine).split('GGA,')[1]
                 self.queue.put_nowait(('GGA', ggaMsg))
                 
             elif re.search(self.cmdMark, str(nemaLine)):
-                self.queue.put_nowait((self.cmdMark, str(line)))
+                self.queue.put_nowait((self.cmdMark, str(nemaLine)))
             
     def setParseNmeaEnable(self, isEnable):
         self.startParseFlag = isEnable

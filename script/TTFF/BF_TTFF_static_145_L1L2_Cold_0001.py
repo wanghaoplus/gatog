@@ -31,6 +31,10 @@ class BF_TTFF_static_145_L1L2_Cold_0001(LbsTestCase):
         self.setupStep("开始播放场景")
         self.assertSuc(self.gss7000.aw_GSS7000RunScenario())
         
+        self.setupStep("发起冷启动定位，使芯片的utc切换到当前场景时间")
+        self.assertSuc(self.lbs.aw_startLocation('cold', checkGGA=False))
+        self.assertSuc(self.lbs.aw_checkLocationSuccess(300, recordData=False))
+        
         self.testStep('模拟器信号设置 -145dBm')
         self.assertSuc(self.gss7000.aw_Gss7000SetSignalLevel(-145))
         

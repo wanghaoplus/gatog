@@ -127,6 +127,25 @@ class JXVAM(object):
         return SUC, retDict
     
     @AutoPrint(True)
+    def aw_muteMultiChannel(self, isMute=True, chList=[128]):
+        '''
+        @summary: 打开、关闭信号输出
+        @param ch: 取值为1~256，值为正整数
+        @param isMute: True表示关闭，False表示打开
+        @return: (SUC,'OK') or (FAIL,'设置失败')
+        @author: shaochanghong
+        '''
+        value = 93 if isMute else 0
+        cmdList = [str(ch) + ',' + str(2 * value) for ch in chList]
+        attCmd = 'SETM:' + ':'.join(cmdList)
+        ret = self.__vamSendCommand(attCmd)
+        if 'CMDERR' in ret:
+            return FAIL, '输入的命令有误'
+        elif 'FAIL' in ret:
+            return FAIL, '设置失败'
+        return SUC, 'OK'
+    
+    @AutoPrint(True)
     def aw_clearVamErrState(self):
         '''
         @summary: 清除设备错误状态记录

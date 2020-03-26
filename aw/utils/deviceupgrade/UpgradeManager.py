@@ -10,6 +10,7 @@ from aw.core.Input import AutoPrint
 from aw.core.Input import getResourcePath
 from aw.utils.deviceupgrade.UpgradeForUser import UpgradeForUser
 from aw.utils.deviceupgrade.UpgradeForBoot import UpgradeForBoot
+from aw.utils.deviceupgrade.UpgradeBase import get_version
 COMPITIVE_DEVICE = ['ublox', 'mtk', 'sony']
 
 
@@ -18,6 +19,7 @@ class UpgradeManager(object):
     def __init__(self):
         self.envList = []
         self.failDeviceList = []
+        self.failSatSetList = []
         isSuc(self.aw_getConfMsg())
         
     def aw_checkAllPortsRight(self):
@@ -28,6 +30,8 @@ class UpgradeManager(object):
                 port = env['Port']
                 connectType = env['connectType']
                 upgMode = env['upgMode']
+                if connectType.lower()=='socket':
+                    port=int(port)
                 if upgMode.lower() == 'user':
                     UpgradeForUser(connectType, port, ip)
             except:
@@ -53,18 +57,23 @@ class UpgradeManager(object):
             versionFile = env['Firmware']
             connectType = env['connectType']
             upgMode = env['upgMode']
-            if upgMode.lower() == 'user':
-                fastboot=UpgradeForUser(connectType, port, ip)
-                ret = fastboot.fastboot(versionFile)[0]
-                if ret == FAIL:
-                    self.failDeviceList.append(env)
-                    PRINTE('IP:%s port:%s --->升级失败' % (ip, str(port)))
-                fastboot.close()
-                del fastboot
-            elif upgMode.lower() == 'boot':
+            fastboot=UpgradeForUser(connectType, port, ip)
+            curVersion=get_version(fastboot)
+            fastboot.close()
+            del fastboot
+            if 'BOOT' in curVersion:
                 chipType = env['chipType']
                 fastboot=UpgradeForBoot(connectType, port, ip)
                 ret = fastboot.fastboot(chipType, versionFile)[0]
+                if ret == FAIL:
+                    self.failDeviceList.append(env)
+                    PRINTE('IP:%s port:%s --->升级失败' % (ip, str(port)))
+                fastboot.reset()
+                fastboot.close()
+                del fastboot
+            else:
+                fastboot=UpgradeForUser(connectType, port, ip)
+                ret = fastboot.fastboot(versionFile)[0]
                 if ret == FAIL:
                     self.failDeviceList.append(env)
                     PRINTE('IP:%s port:%s --->升级失败' % (ip, str(port)))
@@ -83,20 +92,25 @@ class UpgradeManager(object):
             versionFile = env['Firmware']
             connectType = env['connectType']
             hardwareSplit=os.path.split(versionFile)[-1].split('.')
-            hardware='.'.join([hardwareSplit[0],hardwareSplit[-4]+hardwareSplit[-3]])
-            sucFlag=False
-            for _ in range(10):
-                fastboot=UpgradeForUser(connectType, port, ip)
-                fastboot.sendCommand(bytes.fromhex('F1 D9 0A 04 00 00 0E 34'))
-                time.sleep(2)
-                ret=fastboot.reciver()
-                fastboot.close()
-                del fastboot
-                if hardware in str(ret):
-                    sucFlag=True
-                    break
-            if sucFlag is False:
+            hardware='.'.join([hardwareSplit[0],hardwareSplit[-4]+hardwareSplit[-3][:-1]])
+            fastboot=UpgradeForUser(connectType, port, ip)
+            curVersion=get_version(fastboot)
+            fastboot.close()
+            del fastboot
+            if hardware not in curVersion:
                 self.failDeviceList.append(env)
+#             for _ in range(10):
+#                 fastboot=UpgradeForUser(connectType, port, ip)
+#                 fastboot.sendCommand(bytes.fromhex('F1 D9 0A 04 00 00 0E 34'))
+#                 time.sleep(2)
+#                 ret=fastboot.reciver()
+#                 fastboot.close()
+#                 del fastboot
+#                 if hardware in str(ret):
+#                     sucFlag=True
+#                     break
+#             if sucFlag is False:
+#                 self.failDeviceList.append(env)
         if self.failDeviceList:
             PRINTE(self.failDeviceList)
             return FAIL,[(env['IP'],env['Port']) for env in self.failDeviceList]
@@ -118,9 +132,19 @@ class UpgradeManager(object):
             cmdSat = env['cmdSatellite']
             fastboot = UpgradeForUser(connectType, port, ip)
             fastboot.sendCommand(bytes.fromhex(cmdSat))
+#             print(port)
+#             fastboot.reciver()
             time.sleep(0.1)
-            fastboot.close()
-            del fastboot
+#             fastboot.sendCommand(bytes.fromhex('F1 D9 06 0C 00 00 12 3C'))
+#             sat=fastboot.reciver()
+#             print(sat)
+#             fastboot.close()
+#             del fastboot
+#             if str(sat)[2:-1] not in str(bytes.fromhex(cmdSat)):
+#                 self.failSatSetList.append(env)
+        if self.failSatSetList:
+            PRINTE(self.failDeviceList)
+            return FAIL,[(env['IP'],env['Port']) for env in self.failDeviceList]
         return SUC, 'OK'
     
     @AutoPrint(True)
@@ -168,7 +192,7 @@ class UpgradeManager(object):
     
 if __name__ == '__main__':
     fastboot = UpgradeManager()
-    fastboot.aw_checkAllPortsRight()
+#     fastboot.aw_checkAllPortsRight()
     fastboot.aw_startFastboot()
     fastboot.aw_checkUpgradeSuc()
     fastboot.aw_setSatellite()

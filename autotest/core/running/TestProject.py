@@ -30,6 +30,15 @@ class TestProject(BaseTestProject):
         # 获取用例信息
         AnalyseConfig.getRunCases()
         # 将用例按场景分组
+
+        if(1):
+            from autotest.core.modle.Variable import INSTRUMENT
+            from autotest.core.modle.Variable import DEVICE
+            print(VAR)
+            print(DEVICE)
+            print(INSTRUMENT)
+            pass
+
         if VAR.CurProject.GroupCaseEnable.lower() == 'true':
             AnalyseConfig.groupTestCase()
         # 注册Event事件

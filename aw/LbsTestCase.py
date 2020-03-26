@@ -27,11 +27,14 @@ class LbsTestCase(LbsTestCaseBase):
         self.lbs = None
         self.labsat = None
         self.gss7000 = None
+        self.vam = None
         self.sceneData = {}
 
     def setup(self):
         super(LbsTestCase, self).setup()
         self.lbs = LbsManager()
+        PRINTI('vam初始化')
+        self.aw_initVAM()
     
     def aw_initLabsat(self):
         from aw.instruments.labsat.Labsat import GssLabsat
@@ -62,11 +65,24 @@ class LbsTestCase(LbsTestCaseBase):
         except:
             PRINTTRAC('请检查工程配置文件project.json中，gss7000配置是否正确')
             return FAIL, 'gss7000初始化失败'
+        
+    def aw_initVAM(self):
+        from aw.instruments.vam.VAM import JXVAM
+        try:
+            instruments = getInstruments()
+            vamDict = instruments.get('VAM')
+            vamIp = vamDict.get('ip')
+            self.vam = JXVAM(vamIp)
+            self.vam.aw_muteMultiChannel(False)
+            return SUC, 'vam初始化成功'
+        except:
+            PRINTTRAC('请检查工程配置文件project.json中，vam配置是否正确')
+            return FAIL, 'vam初始化失败'
 
     def teardown(self):
         super(LbsTestCase, self).teardown()
         self.lbs.aw_stopReadPort()
-        if getCurCaseConfig()['isArchive'].lower() == 'true':
+        if getCurCaseConfig().get('isArchive','false').lower() == 'true':
             ReportArchive().copyLogToServer(week=self.lbs.deviceList[1]['week'])
         
 

@@ -899,7 +899,7 @@ class GetResource2DB(ActionDB):
             self.add_Track_data(deviceName, element)
         self.commit()
 
-        self.__writeTrackError(deviceName)
+#         self.__writeTrackError(deviceName)
 
     @LBSDector(True)
     def writeNMEATrackError(self, testTable, refTable="novatel"):
@@ -1056,7 +1056,15 @@ class GetResource2DB(ActionDB):
             feature = device["feature"]
             type = device["type"]
             if feature == "nmea" and type != "standard" and devicename != "":
-                deviceData = testData[testData['DeviceSN'] == devicename]
+                if 'port' in devicename:
+                    portListSN = testData['DeviceSN'].values.tolist()
+                    for deviceSN in portListSN:
+                        if devicename[4:] in deviceSN:
+                            deviceData = testData[testData['DeviceSN'] == deviceSN]
+                            break
+                else:
+                    deviceData = testData[testData['DeviceSN'] == devicename]
+                    
                 tab = devicename + 'Error'
                 CEPerrorData = self.getcolomFormDB(tab, ["UTC", "position_error", "distance3D_error", "alt_error"], startTime, endTime)
                 error_data_df = DataFrame(CEPerrorData, columns=["firstFixUTC", 'firstFixCep2D', 'firstFixCep3D', 'firstFixCepAlt'])[:].astype(str)
@@ -1660,7 +1668,7 @@ class GetResource2DB(ActionDB):
             longStd = longitude_ref * math.pi / 180
 
             longCos = math.cos(longSelf - longStd)
-            if longCos >= 1.0:
+            if longCos > 1.0:
                 return 0
             distance = math.acos(latSinSelf * latSinref1 + latCosSelf * latCosref1 * longCos) * 6378137
             return round(distance, 3)

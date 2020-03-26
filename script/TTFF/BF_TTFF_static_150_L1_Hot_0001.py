@@ -32,6 +32,10 @@ class BF_TTFF_static_150_L1_Hot_0001(LbsTestCase):
         self.setupStep("开始播放场景")
         self.assertSuc(self.gss7000.aw_GSS7000RunScenario())
         
+        self.setupStep("发起冷启动定位，使芯片的utc切换到当前场景时间")
+        self.assertSuc(self.lbs.aw_startLocation('cold', checkGGA=False))
+        self.assertSuc(self.lbs.aw_checkLocationSuccess(300, recordData=False))
+        
         self.testStep('模拟器信号设置 -150dBm')
         self.assertSuc(self.gss7000.aw_Gss7000SetSignalLevel(-150))
         
@@ -61,7 +65,7 @@ class BF_TTFF_static_150_L1_Hot_0001(LbsTestCase):
         self.assertSuc(self.lbs.aw_stopReadPort())
         
         self.testStep('测试结果分析')
-        self.lbs.aw_nmeanalysis(startTime, endTime, None, self.lonRef, self.latRef, self.altRef)
+        self.lbs.aw_nmeanalysis(startTime, endTime, None, self.lonRef, self.latRef, self.altRef, isSingle=True)
         
     def teardown(self):
         super(BF_TTFF_static_150_L1_Hot_0001, self).teardown()

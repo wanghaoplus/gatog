@@ -30,6 +30,10 @@ class BF_sensitivity_L1L2_Reacq_0001(LbsTestCase):
         self.setupStep("开始播放场景")
         self.assertSuc(self.gss7000.aw_GSS7000RunScenario())
         
+        self.setupStep("发起冷启动定位，使芯片的utc切换到当前场景时间")
+        self.assertSuc(self.lbs.aw_startLocation('cold', checkGGA=False))
+        self.assertSuc(self.lbs.aw_checkLocationSuccess(300, recordData=False))
+        
     def BF_sensitivity_L1L2_Reacq_0001(self):
         resultHdbdDict = {}  # 北斗办标准测试结果
         resultDict = {}  # 非北斗办标准测试结果
@@ -39,31 +43,43 @@ class BF_sensitivity_L1L2_Reacq_0001(LbsTestCase):
         self.testStep('模拟器信号设置 %sdBm' % str(curDBM))
         self.assertSuc(self.gss7000.aw_Gss7000SetSignalLevel(curDBM))
         
+        self.testStep('获取当前时间')
+        self.assertSuc(self.lbs.aw_getStartTTFFFromPC())
+        
         self.testStep('定位成功后等待120s')
         self.assertSuc(self.lbs.aw_checkLocationSuccess(300))
         self.sleep(120)
-        
+         
         self.testStep('获取ttff')
         ttffDict = self.lbs.aw_calculateTTFF()[1]
         lastTestData = {'ttff':ttffDict, 'dbm':curDBM}
         
         while True:
             self.testStep('关闭信号输出')
-            self.assertSuc(self.gss7000.aw_GSS7000SetPowerEnable(False))
+            self.assertSuc(self.vam.aw_muteMultiChannel(True))
+            
+            self.testStep('重置测试数据')
+            self.assertSuc(self.lbs.aw_resetTestData())
+             
+            self.testStep('检查是否失去定位')
+            self.assertSuc(self.lbs.aw_checkLocationFail(120))
             
             self.testStep('将信号衰减1db，模拟器信号设置 %sdBm' % str(curDBM))
             curDBM -= stepDBM
             self.assertSuc(self.gss7000.aw_Gss7000SetSignalLevel(curDBM))
             
-            self.testStep('打开信号输出')
-            self.assertSuc(self.gss7000.aw_GSS7000SetPowerEnable(True))
-            
             self.testStep('重置测试数据')
             self.assertSuc(self.lbs.aw_resetTestData())
             
+            self.testStep('打开信号输出')
+            self.assertSuc(self.vam.aw_muteMultiChannel(False))
+            
+            self.testStep('获取当前时间')
+            self.assertSuc(self.lbs.aw_getStartTTFFFromPC())
+             
             self.testStep('检查60s内定位成功')
             locStatu, locRet = self.lbs.aw_checkLocationSuccess(60)
-            
+             
             self.testStep('获取ttff')
             ttffDict = self.lbs.aw_calculateTTFF()[1]
             

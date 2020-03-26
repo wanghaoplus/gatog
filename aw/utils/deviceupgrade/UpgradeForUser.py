@@ -15,6 +15,8 @@ from aw.utils.deviceupgrade.UpgradeBase import SerialBase
 from aw.utils.deviceupgrade.UpgradeBase import SocketClient
 
 cmdMONVER = [0xf1, 0xd9, 0x0a, 0x04, 0x00, 0x00, 0x0e, 0x34]
+# print(bytearray(cmdMONVER))
+# time.sleep(30)
 cmdNMEAOFF = [0xf1, 0xd9, 0x06, 0x01, 0x03, 0x00, 0xf0, 0x00, 0x00, 0xfa, 0x0f,
               0xf1, 0xd9, 0x06, 0x01, 0x03, 0x00, 0xf0, 0x02, 0x00, 0xfc, 0x13,
               0xf1, 0xd9, 0x06, 0x01, 0x03, 0x00, 0xf0, 0x03, 0x00, 0xfd, 0x15,
@@ -36,6 +38,9 @@ data1st = [0x67, 0x6e, 0x73, 0x73, 0x32, 0x36, 0x72, 0x65, 0x6c, 0x31, 0x36, 0x2
            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 
 datalast = [0] * 128
+
+ACK_WAIT_TIME=5
+
 
 class UpgradeForUser(object):
     fastbootObj=None
@@ -151,6 +156,28 @@ class UpgradeForUser(object):
         os.remove("temp_file")
         return file_content
     
+    def trigger_ymodem_mode(self):
+        # 16M: "F1D906500100106771"
+        # 26M: "F1D9065001001A717B"
+        fwup_mode_cmd = "F1D906500100106771"
+        fwup_mode_cmd_response = bytearray.fromhex("F1D90501020006505E87")
+        for i in range(0, 5):
+            # send command
+            test_time = time.time()
+            self.sendCommand(bytearray.fromhex(fwup_mode_cmd))
+            time.sleep(0.5)
+            self.reciver(5000)
+            # wait for reply and check result
+            while((time.time() - test_time) < ACK_WAIT_TIME):
+                recv_data = bytearray(self.reciver())
+                print([bytes(recv_data)])
+                for i in range(0, len(recv_data)):
+                    print([i,recv_data[i]])
+                    if (recv_data[i] == 0x43):
+                        return 0
+#         terminate_program("Fail in to enter ymodem", 1)
+        return -1
+    
     @AutoPrint(True)
     def fastboot(self, versionFile):
         try:
@@ -164,24 +191,12 @@ class UpgradeForUser(object):
             firmware_length = len(firmware_file)        
         
             # 发送MONVER
-            self.sendCommand(bytes(bytearray(cmdNMEAOFF)))
+            self.sendCommand(bytearray(cmdNMEAOFF))
             time.sleep(1)
         
-            PRINTI('发送命令让设备进入升级模式...')
-            self.sendCommand(bytes(bytearray(cmdCFGFWUP)))
-         
             PRINTI('监测进入升级模式...')
-            recv = b'0'
-            recvlast = b'1'
-            recvCont = 0
-            while (recv != b'C' and recvlast != b'C' and recvCont < 512):
-                recvlast = recv
-                recv = self.fastbootObj.reciver(1)
-                recvCont += 1
-            if(recvCont < 512):
-                PRINTI("into fwup mode succses")
-            else:
-                PRINTI("into fwup mode failed")
+            ret=self.trigger_ymodem_mode()
+            if ret==-1:
                 return -1,'进入升级模式失败'
         
             PRINTI('开始升级...')
@@ -207,5 +222,5 @@ if __name__ == '__main__':
         fastboot=UpgradeForUser('socket',port,ip)
         fastboot.fastboot(firmware)
         time.sleep(1)
-        fastboot.checkFastbootSuc(firmware)
+#         fastboot.checkFastbootSuc(firmware)
         print(time.time()-startTime)

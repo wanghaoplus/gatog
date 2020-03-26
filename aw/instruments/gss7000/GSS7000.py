@@ -68,7 +68,7 @@ class GSS7000(object):
                 self.__connectGSS7000()
                 GSS7000.tn.write(command.encode("ascii"))
             msg = GSS7000.tn.read_until("</msg>".encode("ascii")).decode("ascii")
-            time.sleep(2)
+            time.sleep(0.1)
         except:
             PRINTTRAC()
         if "error" in msg or "fatal" in msg:
@@ -353,6 +353,7 @@ class GSS7000(object):
         for signalType in signalList:
             signalLevel = 130 + level + loss + signalDict[signalType]
             self.aw_GSS7000SetAbsolutePowLevCh(signalLevel, signalType)
+        time.sleep(2)
         return SUC, 'ok'
     
     def aw_GSS7000SetRefLev(self, level):

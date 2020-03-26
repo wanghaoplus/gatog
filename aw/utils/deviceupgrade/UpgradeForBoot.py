@@ -13,13 +13,13 @@ from aw.core.Input import AutoPrint
 from aw.utils.deviceupgrade.UpgradeBase import SerialBase
 from aw.utils.deviceupgrade.UpgradeBase import SocketClient
 
-cmdMONVER = [0xf1, 0xd9, 0x0a, 0x04, 0x00, 0x00, 0x0e, 0x34]
-cmdSETFRQ = [0xf1, 0xd9, 0xf4, 0x00, 0x04, 0x00, 0x80, 0xba, 0x8c, 0x01, 0xbf, 0xff]
-cmdBOOTERASE_8020 = [0xf1, 0xd9, 0xf4, 0x05, 0x06, 0x00, 0x00, 0x00, 0x00, 0x90, 0x00, 0x00, 0x8f, 0x95]
-cmdBOOTERASE_8040 = [0xf1, 0xd9, 0xf4, 0x05, 0x06, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x0f, 0x25]
-cmdCFGRST = [0xf1, 0xd9, 0x06, 0x40, 0x01, 0x00, 0x00, 0x47, 0x21]
-cmdBOOTBAUD = [0xf1, 0xd9, 0xf4, 0x03, 0x08, 0x00, 0x00, 0xc2, 0x01, 0x00, 0x00, 0xc2, 0x01, 0x00, 0x85, 0x7d]
-cmdFLASHUNLOK = [0xF1, 0xD9, 0xF4, 0x08, 0x04, 0x00, 0x00, 0x02, 0x00, 0x80, 0x82, 0x76]
+ACK_WAIT_TIME=5
+NACK_CMD_ID = 0x0500
+MON_VER_ID = 0x0A04
+ACK_CMD_ID = 0x0501
+MSG_ID_WRITE_FLASH = 0xF405
+ERASE_FLAH_8020 = [0x00, 0x00, 0x00, 0x90, 0x00, 0x00]
+ERASE_FLAH_8040 = [0x00, 0x00, 0x10, 0x00, 0x00, 0x00]
 
 class UpgradeForBoot(object):
     fastbootObj=None
@@ -48,73 +48,56 @@ class UpgradeForBoot(object):
             f.readinto(buf)
         return buf
     
-    def sendfwboot(self, addr, cnt, data, lenth):
-        cmd = [0xF1, 0xD9, 0xF4, 0x05, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
-        ck = [0, 0]
-        ck1 = 0
-        ck2 = 0
-        lenth_full = lenth + 6
-        cmd[4] = lenth_full & 0xFF
-        cmd[5] = (lenth_full >> 8) & 0xFF
-        cmd[6] = addr & 0xFF
-        cmd[7] = (addr >> 8) & 0xFF
-        cmd[8] = (addr >> 16) & 0xFF
-        cmd[9] = (addr >> 24) & 0xFF
-        cmd[10] = cnt & 0xFF
-        cmd[11] = (cnt >> 8) & 0xFF
-        for i in range(0, 12):
-            if (i > 1):
-                ck1 += cmd[i]
-                ck2 += ck1
-    
-        for i in range(0, lenth):
-            ck1 += data[i]
-            ck2 += ck1
-    
-        ck[0] = ck1 & 0xFF
-        ck[1] = ck2 & 0xFF
-    
-        self.sendCommand(bytes(bytearray(cmd)))
-        self.sendCommand(bytes(bytearray(data)))
-        self.sendCommand(bytes(bytearray(ck)))
-    
-    def fw_update_boot(self, data, lenth, address):
-        progress_status = 0
-        count = int(lenth / 1024)
-        for i in range(1, count):
-            self.sendfwboot(address + i * 0x400, i, data[i * 1024:(i + 1) * 1024], 1024)
-            time.sleep(0.01)
-            recv = self.reciver(10)
-    #        print(str(recv))
-            percentage_done = int((10*i/count))%10
-            if(percentage_done > progress_status):
-                progress_status = percentage_done
-                print(str(percentage_done*10)+"%")
-        last = count * 1024
-        self.sendfwboot(address + count * 0x400, count, data[last: lenth], lenth - last)
-        recv = self.reciver(10)
-        print(str(100)+"%")
-    #    print(str(recv))
-        count += 1
-        self.sendfwboot(address, count, data[0:1024], 1024)
-        recv = self.reciver(10)
-    #    print(str(recv))
-    
-        self.sendCommand(bytes(bytearray(cmdCFGRST)))
-        self.sendCommand(bytes(bytearray(cmdBOOTBAUD)))
-    
-    def fastboot(self, chipType, path ):
-        if chipType.startswith('hd802'):
-            address = 0x90000000
-            cmdBOOTERASE = cmdBOOTERASE_8020
-    
-        elif chipType.startswith('hd804'):
-            address = 0x100000
-            cmdBOOTERASE = cmdBOOTERASE_8040
+    def reset(self):
+        from aw.utils.deviceupgrade.UpgradeBase import binary_gen_packet
+        MSG_ID_RESET = 0xF420
+        send_data = binary_gen_packet(MSG_ID_RESET, bytearray([0x01]))
+        self.sendCommand(send_data)
+        time.sleep(0.1)
+        self.sendCommand(send_data)
+        time.sleep(0.1)
+        
+    def binary_send_packet(self, cmd_id, src_data):
+        from aw.utils.deviceupgrade.UpgradeBase import binary_gen_packet
+        send_data = binary_gen_packet(cmd_id, src_data)
+        self.sendCommand(send_data)
+        return
+        
+    def send_set_command(self, command_id, src_data):
+        from aw.utils.deviceupgrade.UpgradeBase import binary_check_packet
+        # retry 5 times
+        for retry in range(0,5):
+            # send command
+            test_time = time.time()
+            self.binary_send_packet(command_id, src_data)
+            
+            # wait for reply and check result
+            result = 0
+            recv_data = bytearray(0)
+            while ((time.time() - test_time) < ACK_WAIT_TIME):
+                recv_data += self.reciver()
+                for i in range(0, len(recv_data)):
+                    cmd_id, data_length = binary_check_packet(recv_data[i:])
+                    if (data_length > 0):
+                        temp_cmd = recv_data[i:(i+data_length)]
+                        # ack or nack received
+                        if(((cmd_id == ACK_CMD_ID) or (cmd_id == NACK_CMD_ID)) and (data_length == 10) and (temp_cmd[7] + (temp_cmd[6]<<8) == command_id)):
+                            return cmd_id
+            print("set command retry 0x%04X %d" % (command_id, retry + 1))
+        return 0
+        
+    def eraseFlash(self, send_data):
+        send_data = bytearray(send_data)
+        self.send_set_command(MSG_ID_WRITE_FLASH, send_data)
+        
+    def fastboot(self,chipType,path):
+        if chipType.lower().startswith('hd802'):
+            cmdBOOTERASE = ERASE_FLAH_8020
+        elif chipType.lower().startswith('hd804'):
+            cmdBOOTERASE = ERASE_FLAH_8040
         else:
             return -1,'没有此芯片类型：%s'%chipType
         cyfm_file = self.read2Buffer(path)
-    
         if (cyfm_file[0] != 0x0A or cyfm_file[1] != 0x11):
             PRINTI("Fail, cyfm file invalid: 01", 1)
             return -1,'升级失败'
@@ -136,31 +119,81 @@ class UpgradeForBoot(object):
             return -1,'升级失败'
     
         print("Verify MDS")
-        firmware_file = list(file_content[16:])  # firmware to be loaded
+        firmware_file = file_content[16:]  # firmware to be loaded
         firmware_length = len(firmware_file)
         f.close()
         os.remove("temp_file")
+        print("erase flash...")
+        self.eraseFlash(cmdBOOTERASE)
+        
+        print("Flashing...")
+        send_ptr = 0     
+        packet_id = 1
+        firmware_length_temp = firmware_length
+        progress_status = 0
+        
+        while (firmware_length_temp > 0):
+            send_data = binary_gen_flash_header(send_ptr, packet_id)
+            
+            # remaining file larger than 2048
+            if (firmware_length_temp > 2048):
+                if (send_ptr == 0):
+                    for i in range(0, 64):
+                        send_data += bytearray([0xFF])
+                    send_data += firmware_file[send_ptr+64 : send_ptr+2048]
+                else:
+                    send_data += firmware_file[send_ptr : send_ptr+2048]
+                result = self.send_set_command(MSG_ID_WRITE_FLASH, send_data)
+                send_ptr += 2048
+                firmware_length_temp -= 2048
+            # remaining file smaller than 2048
+            else:
+                send_data += firmware_file[send_ptr : send_ptr+firmware_length_temp]
+                result = self.send_set_command(MSG_ID_WRITE_FLASH, send_data)
+                send_ptr = firmware_length
+                firmware_length_temp = 0        
+            
+            packet_id += 1
+            
+            # print flash progress
+            percentage_done = int((10*send_ptr/firmware_length))%10
+            if(percentage_done > progress_status):
+                progress_status = percentage_done
+                print(str(percentage_done*10)+"%")
+            
+            # check ack
+            if(result == 0):
+                return -1,"Caution: flash fail"
+        
+        # flash first 64 byte
+        send_data = binary_gen_flash_header(0, packet_id)
+        send_data += firmware_file[0:64]
+        result = self.send_set_command(MSG_ID_WRITE_FLASH, send_data)
+        if(result == 0):
+            return -1,"Caution: flash fail"
+        print("100%")
+        return 0, 'boot升级结束'
+        
+def binary_gen_flash_header(start_address, packet_id):
+    temp_address = 0x100000 + start_address
+    output_buf = bytearray(6)
+    output_buf[0] = temp_address&0xFF
+    output_buf[1] = (temp_address>>8)&0xFF
+    output_buf[2] = (temp_address>>16)&0xFF
+    output_buf[3] = (temp_address>>24)&0xFF
+    output_buf[4] = packet_id&0xFF
+    output_buf[5] = (packet_id>>8)&0xFF
+    return output_buf
     
-        self.sendCommand(bytes(bytearray(cmdMONVER)))
-        time.sleep(0.02)
-        print("MONVER")
-    
-        self.sendCommand(bytes(bytearray(cmdFLASHUNLOK)))
-        time.sleep(0.1)
-        print("Flash unlock")
-        self.sendCommand(bytes(bytearray(cmdSETFRQ)))
-        time.sleep(0.02)
-        print("Set frequency")
-        self.sendCommand(bytes(bytearray(cmdBOOTERASE)))
-        time.sleep(0.2)
-        print("Boot erase")
-    
-        self.fastbootObj.reset_input_buffer()
-        self.fastbootObj.reset_output_buffer()
-    
-        self.fw_update_boot(firmware_file, firmware_length, address)
-        self.close()
-        PRINTI("Firmware download completed!", 0)
-        return 0,'boot升级结束'
+if __name__=='__main__':
+    from aw.utils.deviceupgrade.Config import FASTBOOT_CONF
+    for devieDict in FASTBOOT_CONF:
+        startTime=time.time()
+        ip = devieDict.get('ip')
+        port = devieDict.get('port')
+        firmware = devieDict.get('firmware')
+        fastboot=UpgradeForBoot('socket',port,ip)
+        fastboot.writeFlash('hd8040', firmware)
+        fastboot.reset()
     
     

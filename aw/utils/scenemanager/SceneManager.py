@@ -16,6 +16,7 @@ from aw.core.Input import FAIL
 from aw.core.Input import isSuc
 from aw.core.Input import AutoPrint
 from aw.core.Input import getResourcePath, getLbsCaseLogPath
+from scipy.signal._peak_finding import peak_prominences
 
 SCENE_PATH = r'\\10.100.5.163'
 # SCENE_PATH = r'\\10.100.5.139\Test_department'
@@ -101,7 +102,8 @@ class SceneManager(object):
                     if realSize < spaceMB -5:
                         isSuc(self.aw_copyFile2dstPath(filePath, os.path.join(labsatPath, fileName)))
                         break
-        isSuc(self.aw_copySceneSpanFromServer(sceneData, fileName))
+        if 'Static' not in sceneData['sceneId']:
+            isSuc(self.aw_copySceneSpanFromServer(sceneData, fileName))
         return SUC, self.sceneData
     
     @AutoPrint(True)
@@ -154,11 +156,17 @@ class SceneManager(object):
         filePath = os.path.join(SCENE_PATH, sceneData['memoryLocation'], 'span', fileName, 'span')
         fileList = os.listdir(filePath)
         spanPath = None
-        for file in fileList:
-            if file.endswith('.kmz'):
-                spanPath = os.path.join(filePath, file)
-                isSuc(self.aw_copyFile2dstPath(spanPath, getLbsCaseLogPath()))
-                return SUC, 'ok'
+        if sceneData['sapnPath'] == '':
+            for file in fileList:
+                if file.endswith('.kmz'):
+                    spanPath = os.path.join(filePath, file)
+                    isSuc(self.aw_copyFile2dstPath(spanPath, getLbsCaseLogPath()))
+                    return SUC, 'ok'
+        else:
+            spanPath = os.path.join(filePath, sceneData['sapnPath'] + '.kmz')
+            isSuc(self.aw_copyFile2dstPath(spanPath, getLbsCaseLogPath()))
+            return SUC, 'ok'
+        
         return FAIL, 'has no found this span.'
     
     @AutoPrint(True)
